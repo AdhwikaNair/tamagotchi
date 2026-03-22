@@ -4,12 +4,14 @@ import datetime
 import shutil
 from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog
 from PyQt6.QtCore import Qt, QTimer, QPoint
-from PyQt6.QtGui import QFont, QPixmap, QFontDatabase
+from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QMovie
 from src.pet_brain import PetBrain
 
 class TamagotchiWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.movie = None
+        self.current_img = "chillin"
         self.brain = PetBrain()
         
         self.is_dragging = False 
@@ -263,14 +265,7 @@ class TamagotchiWidget(QWidget):
             img, status = "chillin", "CHILLIN 😎"
 
         # Update Pixmap
-        img_path = os.path.join(self.assets_dir, f"{img}.png")
-        pixmap = QPixmap(img_path)
-        if not pixmap.isNull():
-            scaled = pixmap.scaled(250, 250, Qt.AspectRatioMode.KeepAspectRatio)
-            cropped = scaled.copy(0, 40, scaled.width(), scaled.height() - 40)
-            self.sprite_label.setPixmap(cropped)
-        else:
-            self.sprite_label.setText(f"[{img}]")
+        self.update_pet_image(img)
         
         # Update Text Content
         self.speech_text.setText(f"[{stats['title']}]\nState: {status}")
@@ -294,6 +289,48 @@ class TamagotchiWidget(QWidget):
             self.reboot_btn.hide()
             self.overclock_btn.show()
             self.feed_btn.show()
+
+    def update_pet_image(self, img):
+        # Check if PyQt6 label has actual graphical data loaded
+        pixmap = self.sprite_label.pixmap()
+        has_pixmap = pixmap is not None and not pixmap.isNull()
+        
+        # Do not restart the animation if the state is already playing
+        if img == self.current_img and (self.movie is not None or has_pixmap):
+            return
+            
+        self.current_img = img
+
+        # Stop any existing movie
+        if self.movie:
+            self.movie.stop()
+            self.movie = None
+            self.sprite_label.setMovie(None)
+
+        # 1. Try to load GIF first for animation
+        gif_path = os.path.join(self.assets_dir, f"{img}.gif")
+        if os.path.exists(gif_path):
+            self.movie = QMovie(gif_path)
+            self.movie.jumpToFrame(0)
+            orig_size = self.movie.currentImage().size()
+            if orig_size.width() > 0 and orig_size.height() > 0:
+                # Scale keeping aspect ratio, bounded by 250x250
+                scaled_size = orig_size.scaled(250, 250, Qt.AspectRatioMode.KeepAspectRatio)
+                self.movie.setScaledSize(scaled_size)
+            self.sprite_label.setMovie(self.movie)
+            self.movie.start()
+        else:
+            # 2. Fallback to static PNG
+            img_path = os.path.join(self.assets_dir, f"{img}.png")
+            pixmap = QPixmap(img_path)
+            if not pixmap.isNull():
+                scaled = pixmap.scaled(250, 250, Qt.AspectRatioMode.KeepAspectRatio)
+                cropped = scaled.copy(0, 40, scaled.width(), scaled.height() - 40)
+                self.sprite_label.setPixmap(cropped)
+            else:
+                self.sprite_label.setText(f"[{img}]")
+        
+        self.is_chonky = (img == "chonky")
 
     def enterEvent(self, event):
         self.stats_container.show()
