@@ -36,26 +36,26 @@ class WebFlipWidget(QWidget):
         html = f"""<!DOCTYPE html>
 <html><head><style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
-html, body {{
+html, body {
   width: {self.w}px; height: {self.h}px;
   overflow: hidden;
-  background: transparent;
-}}
-.scene {{
+  background: rgba(177, 156, 217, 0);
+}
+.scene {
   width: {self.w}px; height: {self.h}px;
   perspective: 700px;
-}}
+}
 .page {{
   width: 100%; height: 100%;
   position: relative;
   transform-style: preserve-3d;
   transform-origin: left center;
-  box-shadow: 4px 6px 16px rgba(0,0,0,0.4);
+  box-shadow: 4px 6px 16px rgba(177,156,217,0.7);
 }}
 @keyframes flipPage {{
   0%   {{ transform: rotateY(0deg);    }}
-  45%  {{ box-shadow: 20px 10px 35px rgba(0,0,0,0.55); }}
-  100% {{ transform: rotateY(-180deg); box-shadow: 4px 6px 16px rgba(0,0,0,0.4); }}
+  45%  {{ box-shadow: 20px 10px 35px rgba(177,156,217,0.95); }}
+  100% {{ transform: rotateY(-180deg); box-shadow: 4px 6px 16px rgba(177,156,217,0.7); }}
 }}
 .face {{
   position: absolute;
@@ -400,7 +400,7 @@ class TamagotchiWidget(QWidget):
             """
             self.music_container.setStyleSheet(self.music_style)
             
-        self.music_title_label = QLabel("[MUSIC CONTROL]", self.music_container)
+        self.music_title_label = QLabel("[MEDIA REMOTE]", self.music_container)
         self.music_title_label.setGeometry(55, 1, 110, 22)
         self.music_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.music_title_label.setFont(QFont(self.pixel_font, 11))
@@ -410,13 +410,15 @@ class TamagotchiWidget(QWidget):
         self.music_controls_layout.setSpacing(10)
         self.music_controls_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        self.btn_play_music = QPushButton("🎵 PLAY LOFI")
+        self.btn_play_music = QPushButton("🎧 PLAY/PAUSE")
         self.btn_play_music.setStyleSheet(btn_css)
         self.btn_play_music.setFixedSize(130, 32)
+        self.btn_play_music.clicked.connect(lambda: pyautogui.press('playpause'))
         
-        self.btn_stop_music = QPushButton("🌸 STOP MUSIC")
+        self.btn_stop_music = QPushButton("✨ SKIP TRACK")
         self.btn_stop_music.setStyleSheet(btn_css)
         self.btn_stop_music.setFixedSize(130, 32)
+        self.btn_stop_music.clicked.connect(lambda: pyautogui.press('nexttrack'))
         
         self.music_controls_layout.addWidget(self.btn_play_music)
         self.music_controls_layout.addWidget(self.btn_stop_music)
@@ -439,6 +441,7 @@ class TamagotchiWidget(QWidget):
         self.stacked_pages.addWidget(self.speech_container)
         self.stacked_pages.addWidget(self.music_container)
         self.stacked_pages.setCurrentIndex(0)
+        self.stacked_pages.hide()
         
         from PyQt6.QtWidgets import QHBoxLayout
         self.menus_layout = QHBoxLayout()
@@ -569,8 +572,12 @@ class TamagotchiWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragging = False 
             if (event.globalPosition().toPoint() - self.click_start_pos).manhattanLength() < 5:
-                # Trigger smooth 3D page flip
-                self.flip_to_next_page()
+                if not self.bubble_visible:
+                    self.bubble_visible = True
+                    self.stacked_pages.show()
+                else:
+                    # Trigger smooth 3D page flip
+                    self.flip_to_next_page()
 
     def flip_to_next_page(self):
         """Grab pixmaps of current and next pages, then run the 3D curl animation."""
