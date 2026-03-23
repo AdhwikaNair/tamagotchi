@@ -17,7 +17,7 @@ class TamagotchiWidget(QWidget):
         self.is_dragging = False 
         self.click_start_pos = QPoint()
         self.bubble_visible = False
-        self.is_chonky = False 
+        self.is_chonky = False
 
         # Absolute path to assets folder
         self.assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -395,10 +395,39 @@ class TamagotchiWidget(QWidget):
         if urls:
             path = os.path.normpath(urls[0].toLocalFile())
             if path.startswith("\\\\?\\"): path = path[4:]
-            success, _ = self.brain.eat_file(path)
-            if success:
-                self.is_chonky = True 
-                self.update_display()
+            
+            # 1. Immediately enter chonky state when file is dragged onto pet
+            self.is_chonky = True
+            self.update_display()
+            QApplication.processEvents() # Ensure the GUI updates before the blocking dialog
+            
+            # 2. Show confirmation
+            filename = os.path.basename(path)
+            reply = QMessageBox.question(
+                self, "Confirm Feeding",
+                f"Do you want to feed '{filename}' to the pet?\n(This will move the file to the Recycle Bin!)",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+            
+            # 3. Handle reply
+            if reply == QMessageBox.StandardButton.Yes:
+                success, message = self.brain.eat_file(path)
+                if success:
+                    self.brain.pet_thoughts = message
+                    self.brain.thought_timer = 20
+                    self.update_display()
+                    QTimer.singleShot(8000, self.revert_chonky_state) # Stay chonky for 8 seconds
+                else:
+                    self.brain.pet_thoughts = message
+                    self.brain.thought_timer = 20
+                    self.revert_chonky_state() # Revert if failed
+            else:
+                self.revert_chonky_state() # Revert immediately if cancelled
+
+    def revert_chonky_state(self):
+        self.is_chonky = False
+        self.update_display()
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls(): event.accept()

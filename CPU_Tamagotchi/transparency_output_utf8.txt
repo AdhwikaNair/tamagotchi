@@ -1,0 +1,2 @@
+Total pixels in frame 1: 921600
+Transparent pixels: 840348

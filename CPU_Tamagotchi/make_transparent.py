@@ -38,7 +38,7 @@ def process_gif(gif_path):
         print(f"Successfully cleaned {gif_path} (No Resizing)!")
 
 if __name__ == "__main__":
-    path = r'C:\Users\naira\OneDrive\Desktop\tamagotchi\CPU_Tamagotchi\assets\chillin.gif'
+    path = r'C:\Users\naira\OneDrive\Desktop\tamagotchi\CPU_Tamagotchi\assets\sleepy.gif'
     if os.path.exists(path):
         process_gif(path)
     else:
