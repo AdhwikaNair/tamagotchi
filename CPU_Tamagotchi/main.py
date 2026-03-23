@@ -73,9 +73,16 @@ class TamagotchiWidget(QWidget):
         # --- SPEECH BUBBLE (Click Menu) ---
         self.speech_container = QWidget()
         self.speech_container.setObjectName("SpeechBox")
+        
+        self.speech_title_label = QLabel(self.speech_container)
+        self.speech_title_label.setGeometry(50, 3, 110, 22)
+        self.speech_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.speech_title_label.setFont(QFont(self.pixel_font, 12))
+        self.speech_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
+        
         self.layers_layout = QVBoxLayout()
-        self.layers_layout.setContentsMargins(11, 36, 25, 22)
-        self.layers_layout.setSpacing(6)
+        self.layers_layout.setContentsMargins(19, 36, 27, 4)
+        self.layers_layout.setSpacing(0)
         self.speech_container.setLayout(self.layers_layout)
         
         frame_path = os.path.join(self.assets_dir, "frame.png")
@@ -137,40 +144,64 @@ class TamagotchiWidget(QWidget):
                 font-family: '{self.pixel_font}';
                 font-size: 12px;
                 font-weight: bold;
-                border: 2px solid #B19CD9;
+                border: 1px solid #B19CD9;
                 border-radius: 4px;
-                padding: 1px;
+                padding: 1px 2px;
             }}
             QPushButton:hover {{
                 background-color: #E6E6FA;
             }}
         """
 
-        self.feed_btn = QPushButton("DEVOUR PROCESS 💊")
+        self.feed_btn = QPushButton("DEVOUR PROCESS" + "\u00A0" * 4)
+        self.feed_btn.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        
+        from PyQt6.QtGui import QIcon
+        from PyQt6.QtCore import QSize
+        ramen_path = os.path.join(self.assets_dir, "ramen1.png")
+        if os.path.exists(ramen_path):
+            self.feed_btn.setIcon(QIcon(ramen_path))
+            self.feed_btn.setIconSize(QSize(28, 28))
+        
         self.feed_btn.setStyleSheet(btn_css)
-        self.feed_btn.setFixedWidth(136)
+        self.feed_btn.setFixedSize(134, 32)
         self.feed_btn.clicked.connect(self.handle_feeding)
         self.feed_btn.hide()
         self.layers_layout.addWidget(self.feed_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
-        self.overclock_btn = QPushButton("TOGGLE OVERCLOCK ⚡")
+        self.overclock_btn = QPushButton("TOGGLE OVERCLOCK" + "\u00A0" * 4)
+        self.overclock_btn.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        
+        monster_path = os.path.join(self.assets_dir, "monsterdrink.png")
+        if os.path.exists(monster_path):
+            self.overclock_btn.setIcon(QIcon(monster_path))
+            self.overclock_btn.setIconSize(QSize(28, 28))
+            
         self.overclock_btn.setStyleSheet(btn_css)
-        self.overclock_btn.setFixedWidth(136)
+        self.overclock_btn.setFixedSize(134, 32)
         self.overclock_btn.clicked.connect(self.handle_overclock)
         self.layers_layout.addWidget(self.overclock_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.reboot_btn = QPushButton("REBOOT SYSTEM 💾")
         self.reboot_btn.setStyleSheet(btn_css)
-        self.reboot_btn.setFixedWidth(136)
+        self.reboot_btn.setFixedSize(134, 32)
         self.reboot_btn.clicked.connect(self.handle_reboot)
         self.reboot_btn.hide()
         self.layers_layout.addWidget(self.reboot_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.layers_layout.addStretch()
         # Add to horizontal layout later
-        # Move StatsBox ABOVE the Sprite so taskbar doesn't clip it!
+        # Move StatsBox ABOVE the Sprite        # --- STATS BUBBLE (Hover Menu) ---
         self.stats_container = QWidget()
         self.stats_container.setObjectName("StatsBox")
+        
+        self.stats_title_label = QLabel("[SYSTEM MONITOR]", self.stats_container)
+        self.stats_title_label.setGeometry(55, 3, 110, 22)
+        self.stats_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.stats_title_label.setFont(QFont(self.pixel_font, 11))
+        self.stats_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
+        
         self.stats_inner_layout = QVBoxLayout()
-        self.stats_inner_layout.setContentsMargins(11, 36, 25, 22)
+        self.stats_inner_layout.setContentsMargins(13, 20, 33, 14)
         self.stats_container.setLayout(self.stats_inner_layout)
         
         self.stats_label = QLabel("Loading...")
@@ -254,7 +285,8 @@ class TamagotchiWidget(QWidget):
         elif not stats['plugged_in'] and stats['battery'] < 20:
             img, status = "dead", "LOW BATT 🪦"
         elif self.brain.overclocking:
-            img, status = "stressed", "OVERCLOCK ⚡"
+            monster_uri = os.path.join(self.assets_dir, "monsterdrink.png").replace('\\', '/')
+            img, status = "stressed", f"OVERCLOCK <img src='{monster_uri}' width='14' height='14' align='middle'>"
         elif current_hour >= 23 or current_hour < 6:
             img, status = "sleepy", "SLEEPY 😴"
         elif self.is_chonky:
@@ -268,7 +300,8 @@ class TamagotchiWidget(QWidget):
         self.update_pet_image(img)
         
         # Update Text Content
-        self.speech_text.setText(f"[{stats['title']}]\nState: {status}")
+        self.speech_title_label.setText(f"[{stats['title']}]")
+        self.speech_text.setText(f"<center>State: {status}</center>")
         
         time_str = datetime.datetime.now().strftime("%H:%M")
         pwr_str = "AC" if stats['plugged_in'] else f"{stats['battery']}%"
