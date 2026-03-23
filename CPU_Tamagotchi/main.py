@@ -2,10 +2,123 @@ import sys
 import os
 import datetime
 import shutil
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog
-from PyQt6.QtCore import Qt, QTimer, QPoint
-from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QMovie
+import base64
+import pyautogui
+from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog, QStackedWidget
+from PyQt6.QtCore import Qt, QTimer, QPoint, QBuffer, QIODeviceBase
+from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QMovie, QColor
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from src.pet_brain import PetBrain
+
+
+class WebFlipWidget(QWidget):
+    """Transparent overlay that plays a CSS 3D book-page-flip transition."""
+
+    ANIM_MS = 850   # CSS animation duration in ms
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        
+        self.w, self.h = parent.width(), parent.height()
+        self.setGeometry(0, 0, self.w, self.h)
+        self.hide() # Initially hidden
+
+        self._view = QWebEngineView(self)
+        self._view.page().setBackgroundColor(QColor(0, 0, 0, 0))
+        self._view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._view.resize(self.w, self.h)
+
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.timeout.connect(self._finish)
+
+        html = f"""<!DOCTYPE html>
+<html><head><style>
+* {{ margin:0; padding:0; box-sizing:border-box; }}
+html, body {{
+  width: {self.w}px; height: {self.h}px;
+  overflow: hidden;
+  background: transparent;
+}}
+.scene {{
+  width: {self.w}px; height: {self.h}px;
+  perspective: 700px;
+}}
+.page {{
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  box-shadow: 4px 6px 16px rgba(0,0,0,0.4);
+}}
+@keyframes flipPage {{
+  0%   {{ transform: rotateY(0deg);    }}
+  45%  {{ box-shadow: 20px 10px 35px rgba(0,0,0,0.55); }}
+  100% {{ transform: rotateY(-180deg); box-shadow: 4px 6px 16px rgba(0,0,0,0.4); }}
+}}
+.face {{
+  position: absolute;
+  width: 100%; height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}}
+.back {{ transform: rotateY(180deg); }}
+img {{ width: 100%; height: 100%; display: block; object-fit: fill; }}
+</style></head>
+<body>
+  <div class="scene">
+    <div class="page" id="pg">
+      <div class="face"><img id="imgFront" src=""/></div>
+      <div class="face back"><img id="imgBack" src=""/></div>
+    </div>
+  </div>
+</body></html>"""
+        
+        self._is_ready = False
+        def set_ready(*args):
+            self._is_ready = True
+            
+        self._view.loadFinished.connect(set_ready)
+        self._view.setHtml(html)
+
+    def pix_to_b64(self, pix):
+        buf = QBuffer()
+        buf.open(QIODeviceBase.OpenModeFlag.WriteOnly)
+        pix.save(buf, "PNG")
+        return base64.b64encode(bytes(buf.data())).decode()
+
+    def play_flip(self, from_pixmap, to_pixmap, on_done):
+        if not self._is_ready:
+            # If still booting up chromium, just skip transition
+            on_done()
+            return
+            
+        self._on_done = on_done
+        from_b64 = self.pix_to_b64(from_pixmap)
+        to_b64   = self.pix_to_b64(to_pixmap)
+
+        self.raise_()
+        self.show()
+        
+        # Inject images and replay animation
+        js = f"""
+        document.getElementById('imgFront').src = "data:image/png;base64,{from_b64}";
+        document.getElementById('imgBack').src  = "data:image/png;base64,{to_b64}";
+        var pg = document.getElementById('pg');
+        pg.style.animation = 'none';
+        pg.offsetHeight; /* trigger reflow */
+        pg.style.animation = 'flipPage {self.ANIM_MS}ms cubic-bezier(0.645,0.045,0.355,1.0) forwards';
+        """
+        self._view.page().runJavaScript(js)
+        self._timer.start(self.ANIM_MS + 50)
+
+    def _finish(self):
+        self.hide()
+        if self._on_done:
+            self._on_done()
+
 
 class TamagotchiWidget(QWidget):
     def __init__(self):
@@ -14,10 +127,15 @@ class TamagotchiWidget(QWidget):
         self.current_img = "chillin"
         self.brain = PetBrain()
         
-        self.is_dragging = False 
+        self.is_dragging = False
+        self.drag_position = QPoint()
         self.click_start_pos = QPoint()
         self.bubble_visible = False
         self.is_chonky = False
+        self.current_page = 0
+        self._is_flipping = False
+        self.current_page = 0
+        self._is_flipping = False
 
         # Absolute path to assets folder
         self.assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -67,7 +185,7 @@ class TamagotchiWidget(QWidget):
         self.layout = QVBoxLayout()
         # Anchoring to AlignBottom prevents the app from piercing the taskbar!
         self.layout.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-        self.layout.setSpacing(-50) # Overlap boxes onto the image
+        self.layout.setSpacing(-80) # Overlap boxes onto the image
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         # --- SPEECH BUBBLE (Click Menu) ---
@@ -243,17 +361,89 @@ class TamagotchiWidget(QWidget):
         self.stats_inner_layout.addWidget(self.stats_label)
         self.stats_inner_layout.addStretch()
 
-        sp_stats = self.stats_container.sizePolicy()
-        sp_stats.setRetainSizeWhenHidden(True)
-        self.stats_container.setSizePolicy(sp_stats)
-        self.stats_container.hide()
+        # --- MUSIC CONTAINER ---
+        self.music_container = QWidget()
+        self.music_container.setObjectName("MusicBox")
+        self.music_container.setFixedSize(180, 145)
+        self.music_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        
+        self.music_layout = QVBoxLayout()
+        self.music_layout.setContentsMargins(13, 20, 33, 14)
+        self.music_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        if os.path.exists(frame_path):
+            self.music_style = f"""
+                QWidget#MusicBox {{
+                    background-color: transparent; 
+                    border-image: url("{frame_path.replace('\\', '/')}") 0 0 0 0 stretch stretch;
+                }}
+                QLabel {{
+                    color: #4B0082; 
+                    background: transparent;
+                    border: none;
+                }}
+            """
+            self.music_container.setStyleSheet(self.music_style)
+        else:
+            self.music_style = """
+                QWidget#MusicBox {
+                    background-color: #FAF5FF;
+                    border: 3px solid #B19CD9;
+                    border-radius: 6px;
+                    padding: 8px;
+                }
+                QLabel {
+                    color: #4B0082;
+                    border: none;
+                    background: transparent;
+                }
+            """
+            self.music_container.setStyleSheet(self.music_style)
+            
+        self.music_title_label = QLabel("[MUSIC CONTROL]", self.music_container)
+        self.music_title_label.setGeometry(55, 1, 110, 22)
+        self.music_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.music_title_label.setFont(QFont(self.pixel_font, 11))
+        self.music_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
+        
+        self.music_controls_layout = QVBoxLayout()
+        self.music_controls_layout.setSpacing(10)
+        self.music_controls_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        self.btn_play_music = QPushButton("🎵 PLAY LOFI")
+        self.btn_play_music.setStyleSheet(btn_css)
+        self.btn_play_music.setFixedSize(130, 32)
+        
+        self.btn_stop_music = QPushButton("🌸 STOP MUSIC")
+        self.btn_stop_music.setStyleSheet(btn_css)
+        self.btn_stop_music.setFixedSize(130, 32)
+        
+        self.music_controls_layout.addWidget(self.btn_play_music)
+        self.music_controls_layout.addWidget(self.btn_stop_music)
+        
+        # Override margins to physically push the content box into the visual white center of the bubble
+        self.music_layout.setContentsMargins(19, 30, 27, 14)
+        
+        self.music_layout.addLayout(self.music_controls_layout)
+        self.music_container.setLayout(self.music_layout)
+        # --- STACKED WIDGET ---
+        self.stacked_pages = QStackedWidget()
+        self.stacked_pages.setFixedSize(220, 160)
+        
+        # Give pages a transparent background so the curl renders cleanly
+        self.speech_container.setStyleSheet(self.speech_style + "\nbackground: transparent;")
+        self.stats_container.setStyleSheet(self.stats_style + "\nbackground: transparent;")
+        self.music_container.setStyleSheet(self.music_style + "\nbackground: transparent;")
+        
+        self.stacked_pages.addWidget(self.stats_container)
+        self.stacked_pages.addWidget(self.speech_container)
+        self.stacked_pages.addWidget(self.music_container)
+        self.stacked_pages.setCurrentIndex(0)
         
         from PyQt6.QtWidgets import QHBoxLayout
         self.menus_layout = QHBoxLayout()
         self.menus_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.menus_layout.setSpacing(10)
-        self.menus_layout.addWidget(self.stats_container)
-        self.menus_layout.addWidget(self.speech_container)
+        self.menus_layout.addWidget(self.stacked_pages)
         
         self.layout.addLayout(self.menus_layout)
 
@@ -263,9 +453,7 @@ class TamagotchiWidget(QWidget):
         self.layout.addWidget(self.sprite_label)
         self.setLayout(self.layout)
 
-        # Ensure menus overlap on top
-        self.speech_container.raise_()
-        self.stats_container.raise_()
+        # No raise_() needed, QStackedWidget handles order
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_display)
@@ -365,15 +553,11 @@ class TamagotchiWidget(QWidget):
         
         self.is_chonky = (img == "chonky")
 
-    def enterEvent(self, event):
-        self.stats_container.show()
-
-    def leaveEvent(self, event):
-        self.stats_container.hide()
+    # Removed enterEvent and leaveEvent because QStackedWidget handles visibility now
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.is_dragging = True 
+            self.is_dragging = True
             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             self.click_start_pos = event.globalPosition().toPoint()
 
@@ -385,9 +569,34 @@ class TamagotchiWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragging = False 
             if (event.globalPosition().toPoint() - self.click_start_pos).manhattanLength() < 5:
-                # Priority: Handle clickable links or toggle bubble
-                self.bubble_visible = not self.bubble_visible
-                self.speech_container.setVisible(self.bubble_visible)
+                # Trigger smooth 3D page flip
+                self.flip_to_next_page()
+
+    def flip_to_next_page(self):
+        """Grab pixmaps of current and next pages, then run the 3D curl animation."""
+        if self._is_flipping:
+            return   # ignore clicks while animation is running
+        self._is_flipping = True
+        next_page = (self.current_page + 1) % 3
+
+        # Ensure overlay exists
+        if not hasattr(self, 'flip_overlay'):
+            self.flip_overlay = WebFlipWidget(self.stacked_pages)
+
+        # Grab the current (from) page
+        from_pix = self.stacked_pages.grab()
+
+        # Briefly switch to next page to grab its appearance silently
+        self.stacked_pages.setCurrentIndex(next_page)
+        to_pix = self.stacked_pages.grab()
+        self.stacked_pages.setCurrentIndex(self.current_page)
+
+        def on_done():
+            self.current_page = next_page
+            self.stacked_pages.setCurrentIndex(next_page)
+            self._is_flipping = False   # allow next flip
+
+        self.flip_overlay.play_flip(from_pix, to_pix, on_done)
 
     def handle_feeding(self):
         target = self.brain.get_top_offender()
