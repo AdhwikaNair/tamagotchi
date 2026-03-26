@@ -44,7 +44,8 @@ class PetBrain:
                 "cpu": 0, "ram": 0, "hp": 0, "weight": self.weight, 
                 "status": "FATAL ERROR 🪦", "battery": 0, 
                 "plugged_in": False, "xp": self.xp, "title": "SYSTEM HALTED",
-                "thoughts": "" # Dead pets don't think!
+                "thoughts": "", # Dead pets don't think!
+                "img": "dead"
             }
 
         data = self.read_hardware()
@@ -83,35 +84,47 @@ class PetBrain:
             self.pet_thoughts = ""
             self.active_url = "" # Clear the link when the thought disappears
         
+        import random
         # Metabolism
         if ram > 80:
-            self.weight += 1
+            if random.random() < 0.10: # 10% chance per tick to gain 1 weight
+                self.weight += 1
         elif ram < 40:
-            self.weight = max(10, self.weight - 1)
+            if random.random() < 0.10: # 10% chance per tick to lose 1 weight
+                self.weight = max(10, self.weight - 1)
             
+        img = "chillin"
         # Core Game Logic with Time Awareness Overrides
         if self.overclocking:
             self.hp -= 4      
             self.xp += 5      
             self.status = "OVERCLOCK ⚡"
+            img = "stressed"
         elif not plugged and batt < 20:
             self.status = "LOW BATTERY 💤"
+            img = "dead"
         elif cpu > 85:
             # NEW: If you stress the PC late at night, the pet gets CRANKY
             if is_late_night:
                 self.hp -= 4 # Double damage for keeping it awake!
                 self.status = "CRANKY 😠 (Let me sleep!)"
+                img = "stressed"
             else:
                 self.hp -= 2
                 self.status = "STRESSED 🥵"
+                img = "stressed"
         elif ram > 80:
-            self.status = "CHONKY 🍔"
+            # We removed the CHONKY status override here!
+            # High RAM still increases weight, but doesn't change the animation.
+            pass 
         elif is_late_night:
             # NEW: The default state late at night isn't Chillin, it's Sleepy
             self.status = "SLEEPY 😴" 
+            img = "sleepy"
             # Removed self.xp += 1 to stop passive XP gain
         else:
             self.status = "CHILLIN 😎"
+            img = "chillin"
             # Removed self.xp += 1 to stop passive XP gain
             
         if self.hp <= 0:
@@ -130,7 +143,8 @@ class PetBrain:
             "battery": batt, "plugged_in": plugged, 
             "xp": self.xp, "title": title,
             "thoughts": self.pet_thoughts, 
-            "active_url": self.active_url # Tell the UI if there is a link to open
+            "active_url": self.active_url, # Tell the UI if there is a link to open
+            "img": img
         }
 
     def get_top_offender(self):

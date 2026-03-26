@@ -4,120 +4,169 @@ import datetime
 import shutil
 import base64
 import pyautogui
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog, QStackedWidget
+from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QVBoxLayout, QPushButton, QMessageBox, QFileDialog, QStackedWidget, QFrame, QDialog, QHBoxLayout
 from PyQt6.QtCore import Qt, QTimer, QPoint, QBuffer, QIODeviceBase
-from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QMovie, QColor
-from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtGui import QFont, QPixmap, QFontDatabase, QMovie, QColor, QBitmap, QPainter, QPainterPath, QPen
 from src.pet_brain import PetBrain
 
-
-class WebFlipWidget(QWidget):
-    """Transparent overlay that plays a CSS 3D book-page-flip transition."""
-
-    ANIM_MS = 850   # CSS animation duration in ms
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+class PinkPopup(QDialog):
+    def __init__(self, title, message, pixel_font="Consolas", is_question=False, parent=None):
+        super().__init__()
+        if parent: self.setParent(parent)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
-        self.w, self.h = parent.width(), parent.height()
-        self.setGeometry(0, 0, self.w, self.h)
-        self.hide() # Initially hidden
-
-        self._view = QWebEngineView(self)
-        self._view.page().setBackgroundColor(QColor(0, 0, 0, 0))
-        self._view.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self._view.resize(self.w, self.h)
-
-        self._timer = QTimer(self)
-        self._timer.setSingleShot(True)
-        self._timer.timeout.connect(self._finish)
-
-        html = f"""<!DOCTYPE html>
-<html><head><style>
-* {{ margin:0; padding:0; box-sizing:border-box; }}
-html, body {
-  width: {self.w}px; height: {self.h}px;
-  overflow: hidden;
-  background: rgba(177, 156, 217, 0);
-}
-.scene {
-  width: {self.w}px; height: {self.h}px;
-  perspective: 700px;
-}
-.page {{
-  width: 100%; height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  transform-origin: left center;
-  box-shadow: 4px 6px 16px rgba(177,156,217,0.7);
-}}
-@keyframes flipPage {{
-  0%   {{ transform: rotateY(0deg);    }}
-  45%  {{ box-shadow: 20px 10px 35px rgba(177,156,217,0.95); }}
-  100% {{ transform: rotateY(-180deg); box-shadow: 4px 6px 16px rgba(177,156,217,0.7); }}
-}}
-.face {{
-  position: absolute;
-  width: 100%; height: 100%;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow: hidden;
-}}
-.back {{ transform: rotateY(180deg); }}
-img {{ width: 100%; height: 100%; display: block; object-fit: fill; }}
-</style></head>
-<body>
-  <div class="scene">
-    <div class="page" id="pg">
-      <div class="face"><img id="imgFront" src=""/></div>
-      <div class="face back"><img id="imgBack" src=""/></div>
-    </div>
-  </div>
-</body></html>"""
+        main_widget = QWidget(self)
+        main_widget.setStyleSheet("""
+            QWidget#MainWidget {
+                background-color: #FDE2ED;
+                border: 2px solid black;
+            }
+        """)
+        main_widget.setObjectName("MainWidget")
         
-        self._is_ready = False
-        def set_ready(*args):
-            self._is_ready = True
-            
-        self._view.loadFinished.connect(set_ready)
-        self._view.setHtml(html)
-
-    def pix_to_b64(self, pix):
-        buf = QBuffer()
-        buf.open(QIODeviceBase.OpenModeFlag.WriteOnly)
-        pix.save(buf, "PNG")
-        return base64.b64encode(bytes(buf.data())).decode()
-
-    def play_flip(self, from_pixmap, to_pixmap, on_done):
-        if not self._is_ready:
-            # If still booting up chromium, just skip transition
-            on_done()
-            return
-            
-        self._on_done = on_done
-        from_b64 = self.pix_to_b64(from_pixmap)
-        to_b64   = self.pix_to_b64(to_pixmap)
-
-        self.raise_()
-        self.show()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(main_widget)
         
-        # Inject images and replay animation
-        js = f"""
-        document.getElementById('imgFront').src = "data:image/png;base64,{from_b64}";
-        document.getElementById('imgBack').src  = "data:image/png;base64,{to_b64}";
-        var pg = document.getElementById('pg');
-        pg.style.animation = 'none';
-        pg.offsetHeight; /* trigger reflow */
-        pg.style.animation = 'flipPage {self.ANIM_MS}ms cubic-bezier(0.645,0.045,0.355,1.0) forwards';
+        v_layout = QVBoxLayout(main_widget)
+        v_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout.setSpacing(0)
+        
+        # Title bar (Hot Pink)
+        title_bar = QWidget()
+        title_bar.setFixedHeight(24)
+        title_bar.setStyleSheet("""
+            QWidget {
+                background-color: #F35B89;
+                border-bottom: 2px solid black;
+            }
+        """)
+        t_layout = QHBoxLayout(title_bar)
+        t_layout.setContentsMargins(6, 0, 4, 0)
+        
+        t_label = QLabel(title)
+        t_label.setStyleSheet(f"color: white; font-family: '{pixel_font}'; font-weight: bold; font-size: 13px; border: none; background: transparent;")
+        t_layout.addWidget(t_label)
+        t_layout.addStretch()
+        
+        # Close button in title bar
+        close_btn = QPushButton("X")
+        close_btn.setFixedSize(16, 16)
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #FDE2ED;
+                border: 1px solid black;
+                color: black;
+                font-family: 'Consolas';
+                font-size: 11px;
+                font-weight: bold;
+                padding: 0px;
+            }
+            QPushButton:hover { background-color: #FFFFFF; }
+        """)
+        close_btn.clicked.connect(self.reject)
+        t_layout.addWidget(close_btn)
+        
+        v_layout.addWidget(title_bar)
+        
+        # Body Content
+        content_widget = QWidget()
+        content_widget.setStyleSheet("border: none; background: transparent;")
+        c_layout = QHBoxLayout(content_widget)
+        c_layout.setContentsMargins(12, 12, 12, 12)
+        
+        # Add Icon
+        icon_label = QLabel()
+        icon_pixmap = QPixmap(36, 36)
+        icon_pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(icon_pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        path = QPainterPath()
+        path.moveTo(18, 4)
+        path.lineTo(34, 32)
+        path.lineTo(2, 32)
+        path.closeSubpath()
+        painter.setBrush(QColor("#F35B89"))
+        painter.setPen(QPen(QColor("black"), 2))
+        painter.drawPath(path)
+        
+        painter.setBrush(QColor("black"))
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRect(16, 12, 4, 10)
+        painter.drawRect(16, 26, 4, 4)
+        painter.end()
+        
+        icon_label.setPixmap(icon_pixmap)
+        c_layout.addWidget(icon_label, alignment=Qt.AlignmentFlag.AlignTop)
+        
+        c_layout.addSpacing(5)
+        
+        msg_layout = QVBoxLayout()
+        msg_layout.setSpacing(8)
+        
+        msg_label = QLabel(message)
+        msg_label.setFont(QFont(pixel_font, 10))
+        msg_label.setStyleSheet("color: black;")
+        msg_label.setWordWrap(True)
+        msg_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        msg_layout.addWidget(msg_label)
+        
+        # Buttons
+        btn_layout = QHBoxLayout()
+        btn_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        btn_layout.setSpacing(10)
+        
+        btn_style = f"""
+            QPushButton {{
+                background-color: #FDE2ED;
+                border: 2px solid black;
+                color: black;
+                font-family: '{pixel_font}';
+                font-size: 11px;
+                padding: 3px 12px;
+            }}
+            QPushButton:hover {{
+                background-color: #F35B89;
+                color: white;
+            }}
+            QPushButton:pressed {{
+                background-color: #D81B60;
+            }}
         """
-        self._view.page().runJavaScript(js)
-        self._timer.start(self.ANIM_MS + 50)
+        
+        if is_question:
+            yes_btn = QPushButton("Yes")
+            yes_btn.setStyleSheet(btn_style)
+            yes_btn.clicked.connect(self.accept)
+            
+            no_btn = QPushButton("No")
+            no_btn.setStyleSheet(btn_style)
+            no_btn.clicked.connect(self.reject)
+            
+            btn_layout.addWidget(yes_btn)
+            btn_layout.addWidget(no_btn)
+        else:
+            ok_btn = QPushButton("OK")
+            ok_btn.setStyleSheet(btn_style)
+            ok_btn.clicked.connect(self.accept)
+            btn_layout.addWidget(ok_btn)
+            
+        msg_layout.addLayout(btn_layout)
+        c_layout.addLayout(msg_layout)
+        v_layout.addWidget(content_widget)
 
-    def _finish(self):
-        self.hide()
-        if self._on_done:
-            self._on_done()
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if hasattr(self, 'drag_pos') and event.buttons() == Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.drag_pos)
+            event.accept()
+
 
 
 class TamagotchiWidget(QWidget):
@@ -133,9 +182,6 @@ class TamagotchiWidget(QWidget):
         self.bubble_visible = False
         self.is_chonky = False
         self.current_page = 0
-        self._is_flipping = False
-        self.current_page = 0
-        self._is_flipping = False
 
         # Absolute path to assets folder
         self.assets_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
@@ -158,14 +204,19 @@ class TamagotchiWidget(QWidget):
         self.init_ui()
 
     def init_ui(self):
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool | Qt.WindowType.NoDropShadowWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
+        self.setStyleSheet("background: transparent; border: none; outline: none;")
+        self.setWindowOpacity(0.999) 
+        self.setContentsMargins(0, 0, 0, 0)
         self.setAcceptDrops(True) 
         
         cursor_path = os.path.join(self.assets_dir, "cursor.png")
         if not os.path.exists(cursor_path):
-            from PyQt6.QtWidgets import QFileDialog, QMessageBox
-            reply = QMessageBox.information(None, "Missing Cursor Image!", "Hey! Please click OK to select the paw image you just uploaded so I can set it as your custom cursor!")
+            from PyQt6.QtWidgets import QFileDialog
+            popup = PinkPopup("Desktop", "Missing Cursor Image!\n\nPlease select the paw image you uploaded\nso I can set it as your cursor!", self.pixel_font, False, self)
+            popup.exec()
             selected, _ = QFileDialog.getOpenFileName(None, "Select Cursor Image", "", "Images (*.png *.jpg *.jpeg)")
             if selected:
                 try:
@@ -185,7 +236,7 @@ class TamagotchiWidget(QWidget):
         self.layout = QVBoxLayout()
         # Anchoring to AlignBottom prevents the app from piercing the taskbar!
         self.layout.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-        self.layout.setSpacing(-80) # Overlap boxes onto the image
+        self.layout.setSpacing(-110) # Overlap boxes more closely onto the cat
         self.layout.setContentsMargins(0, 0, 0, 0)
 
         # --- SPEECH BUBBLE (Click Menu) ---
@@ -199,14 +250,15 @@ class TamagotchiWidget(QWidget):
         self.speech_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
         
         self.layers_layout = QVBoxLayout()
-        self.layers_layout.setContentsMargins(19, 36, 27, 4)
+        self.layers_layout.setContentsMargins(23, 40, 32, 4)
         self.layers_layout.setSpacing(0)
         self.speech_container.setLayout(self.layers_layout)
         
         frame_path = os.path.join(self.assets_dir, "frame.png")
         if not os.path.exists(frame_path):
-            from PyQt6.QtWidgets import QFileDialog, QMessageBox
-            reply = QMessageBox.information(None, "Missing Frame Image!", "Hey! I couldn't find frame.png in your assets folder (I can't steal it from our chat!).\nPlease click OK to select the image file from your Downloads folder so I can use it!")
+            from PyQt6.QtWidgets import QFileDialog
+            popup = PinkPopup("Desktop", "Missing Frame Image!\n\nPlease find frame.png in your folder.", self.pixel_font, False, self)
+            popup.exec()
             selected, _ = QFileDialog.getOpenFileName(None, "Select Frame Image", "", "Images (*.png *.jpg *.jpeg)")
             if selected:
                 try:
@@ -228,7 +280,7 @@ class TamagotchiWidget(QWidget):
                 }}
             """
             self.speech_container.setStyleSheet(self.speech_style)
-            self.speech_container.setFixedSize(180, 145)
+            self.speech_container.setFixedSize(220, 160)
         else:
             self.speech_style = """
                 QWidget#SpeechBox {
@@ -312,14 +364,14 @@ class TamagotchiWidget(QWidget):
         self.stats_container = QWidget()
         self.stats_container.setObjectName("StatsBox")
         
-        self.stats_title_label = QLabel("[SYSTEM MONITOR]", self.stats_container)
+        self.stats_title_label = QLabel("     SYSTEM MONITOR] ", self.stats_container)
         self.stats_title_label.setGeometry(55, 3, 110, 22)
         self.stats_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.stats_title_label.setFont(QFont(self.pixel_font, 11))
         self.stats_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
         
         self.stats_inner_layout = QVBoxLayout()
-        self.stats_inner_layout.setContentsMargins(13, 20, 33, 14)
+        self.stats_inner_layout.setContentsMargins(16, 22, 40, 15)
         self.stats_container.setLayout(self.stats_inner_layout)
         
         self.stats_label = QLabel("Loading...")
@@ -339,7 +391,7 @@ class TamagotchiWidget(QWidget):
             """
             self.stats_container.setStyleSheet(self.stats_style)
             self.stats_label.setStyleSheet("background: transparent; border: none; color: #4B0082;")
-            self.stats_container.setFixedSize(180, 145)
+            self.stats_container.setFixedSize(220, 160)
         else:
             self.stats_style = """
                 QWidget#StatsBox {
@@ -356,7 +408,7 @@ class TamagotchiWidget(QWidget):
             """
             self.stats_container.setStyleSheet(self.stats_style)
             self.stats_label.setStyleSheet("color: #4B0082; border: none; background: transparent;")
-        self.stats_label.setFont(QFont(self.pixel_font, 10))
+        self.stats_label.setFont(QFont(self.pixel_font, 12))
         self.stats_inner_layout.addStretch()
         self.stats_inner_layout.addWidget(self.stats_label)
         self.stats_inner_layout.addStretch()
@@ -364,11 +416,11 @@ class TamagotchiWidget(QWidget):
         # --- MUSIC CONTAINER ---
         self.music_container = QWidget()
         self.music_container.setObjectName("MusicBox")
-        self.music_container.setFixedSize(180, 145)
+        self.music_container.setFixedSize(220, 160) # Updated fixed size
         self.music_container.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         
         self.music_layout = QVBoxLayout()
-        self.music_layout.setContentsMargins(13, 20, 33, 14)
+        self.music_layout.setContentsMargins(23, 33, 32, 15)
         self.music_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         if os.path.exists(frame_path):
@@ -400,7 +452,7 @@ class TamagotchiWidget(QWidget):
             """
             self.music_container.setStyleSheet(self.music_style)
             
-        self.music_title_label = QLabel("[MEDIA REMOTE]", self.music_container)
+        self.music_title_label = QLabel("    [MUSIC REMOTE]", self.music_container)
         self.music_title_label.setGeometry(55, 1, 110, 22)
         self.music_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.music_title_label.setFont(QFont(self.pixel_font, 11))
@@ -424,19 +476,72 @@ class TamagotchiWidget(QWidget):
         self.music_controls_layout.addWidget(self.btn_stop_music)
         
         # Override margins to physically push the content box into the visual white center of the bubble
-        self.music_layout.setContentsMargins(19, 30, 27, 14)
+        # self.music_layout.setContentsMargins(19, 30, 27, 14) # Removed, now set above
         
         self.music_layout.addLayout(self.music_controls_layout)
         self.music_container.setLayout(self.music_layout)
         # --- STACKED WIDGET ---
         self.stacked_pages = QStackedWidget()
+        self.stacked_pages.setFrameStyle(QFrame.Shape.NoFrame | QFrame.Shadow.Plain)
         self.stacked_pages.setFixedSize(220, 160)
         
-        # Give pages a transparent background so the curl renders cleanly
-        self.speech_container.setStyleSheet(self.speech_style + "\nbackground: transparent;")
-        self.stats_container.setStyleSheet(self.stats_style + "\nbackground: transparent;")
-        self.music_container.setStyleSheet(self.music_style + "\nbackground: transparent;")
+        # --- COVER PAGE (GIF) ---
+        self.cover_container = QWidget()
+        self.cover_container.setObjectName("CoverBox")
+        self.cover_container.setFixedSize(220, 160)
+        # The container acts as the black border
+        self.cover_container.setStyleSheet("""
+            #CoverBox {
+                background-color: black;
+                border-radius: 12px;
+            }
+        """)
         
+        self.cover_layout = QVBoxLayout()
+        # 2px margins create a 2px black border around the GIF
+        self.cover_layout.setContentsMargins(2, 2, 2, 2)
+        self.cover_container.setLayout(self.cover_layout)
+        
+        cover_path = os.path.join(self.assets_dir, "tamayogif.gif")
+        self.cover_label = QLabel()
+        self.cover_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.cover_label.setFixedSize(216, 156)
+        
+        # Strictly mask the label so the QMovie cannot render outside the rounded corners
+        mask = QBitmap(216, 156)
+        mask.clear()
+        painter = QPainter(mask)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setBrush(Qt.GlobalColor.color1)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRoundedRect(0, 0, 216, 156, 10, 10)
+        painter.end()
+        self.cover_label.setMask(mask)
+        self.cover_label.setStyleSheet("background-color: transparent;")
+        
+        if os.path.exists(cover_path):
+            self.cover_movie = QMovie(cover_path)
+            self.cover_movie.jumpToFrame(0)
+            orig_size = self.cover_movie.currentImage().size()
+            if orig_size.width() > 0 and orig_size.height() > 0:
+                # Scale the GIF to cover the entire label
+                scaled_size = orig_size.scaled(216, 156, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+                self.cover_movie.setScaledSize(scaled_size)
+            self.cover_label.setMovie(self.cover_movie)
+            self.cover_movie.start()
+        else:
+            self.cover_label.setText("[tamayogif.gif missing]")
+            
+        self.cover_layout.addWidget(self.cover_label)
+        
+        # Give pages a transparent background so the curl renders cleanly
+        if hasattr(self, 'speech_style'):
+            # Note: cover_container retains its black rounded background defined above
+            self.speech_container.setStyleSheet(self.speech_style + "\nbackground: transparent;")
+            self.stats_container.setStyleSheet(self.stats_style + "\nbackground: transparent;")
+            self.music_container.setStyleSheet(self.music_style + "\nbackground: transparent;")
+        
+        self.stacked_pages.addWidget(self.cover_container)
         self.stacked_pages.addWidget(self.stats_container)
         self.stacked_pages.addWidget(self.speech_container)
         self.stacked_pages.addWidget(self.music_container)
@@ -453,6 +558,10 @@ class TamagotchiWidget(QWidget):
         # --- SPRITE ---
         self.sprite_label = QLabel()
         self.sprite_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sprite_label.setFrameShape(QFrame.Shape.NoFrame)
+        self.sprite_label.setStyleSheet("border: none; background: transparent; outline: none;")
+        self.movie = None
+        
         self.layout.addWidget(self.sprite_label)
         self.setLayout(self.layout)
 
@@ -470,22 +579,18 @@ class TamagotchiWidget(QWidget):
         stats = self.brain.update_stats(QApplication.clipboard().text())
         current_hour = datetime.datetime.now().hour
 
-        # Determine Sprite state with proper priority
-        if stats['status'] == "FATAL ERROR 🪦":
-            img, status = "dead", "DEAD 💀"
-        elif not stats['plugged_in'] and stats['battery'] < 20:
-            img, status = "dead", "LOW BATT 🪦"
-        elif self.brain.overclocking:
+        # Determine Sprite state directly from the pet brain
+        img = stats.get('img', 'chillin')
+        status = stats['status']
+        
+        # UI overlays
+        if "OVERCLOCK" in status:
             monster_uri = os.path.join(self.assets_dir, "monsterdrink.png").replace('\\', '/')
-            img, status = "stressed", f"OVERCLOCK <img src='{monster_uri}' width='14' height='14' align='middle'>"
-        elif current_hour >= 23 or current_hour < 6:
-            img, status = "sleepy", "SLEEPY 😴"
-        elif self.is_chonky:
-            img, status = "chonky", "CHONKY 🍔"
-        elif stats['cpu'] > 85 or stats['ram'] > 85:
-            img, status = "stressed", "STRESSED 🥵"
-        else:
-            img, status = "chillin", "CHILLIN 😎"
+            status = f"OVERCLOCK <img src='{monster_uri}' width='14' height='14' align='middle'>"
+            
+        if self.is_chonky and img not in ["dead"]:
+            img = "chonky"
+            status = "CHONKY 🍔"
 
         # Update Pixmap
         self.update_pet_image(img)
@@ -505,7 +610,7 @@ class TamagotchiWidget(QWidget):
         )
 
         # Button Logic
-        if "LOW BATT" in status or "DEAD" in status:
+        if "LOW BATTERY" in status or "FATAL" in status:
             self.feed_btn.hide()
             self.overclock_btn.hide()
             self.reboot_btn.show()
@@ -549,8 +654,7 @@ class TamagotchiWidget(QWidget):
             pixmap = QPixmap(img_path)
             if not pixmap.isNull():
                 scaled = pixmap.scaled(250, 250, Qt.AspectRatioMode.KeepAspectRatio)
-                cropped = scaled.copy(0, 40, scaled.width(), scaled.height() - 40)
-                self.sprite_label.setPixmap(cropped)
+                self.sprite_label.setPixmap(scaled)
             else:
                 self.sprite_label.setText(f"[{img}]")
         
@@ -572,50 +676,41 @@ class TamagotchiWidget(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragging = False 
             if (event.globalPosition().toPoint() - self.click_start_pos).manhattanLength() < 5:
-                if not self.bubble_visible:
-                    self.bubble_visible = True
-                    self.stacked_pages.show()
-                else:
-                    # Trigger smooth 3D page flip
+                # Check what was clicked using local position
+                clicked_widget = self.childAt(event.position().toPoint())
+                
+                # Check if click is on/within stacked_pages
+                is_on_menu = False
+                temp = clicked_widget
+                while temp:
+                    if temp == self.stacked_pages:
+                        is_on_menu = True
+                        break
+                    temp = temp.parentWidget()
+                
+                if is_on_menu:
+                    # User clicked the boxes -> flip to next page
                     self.flip_to_next_page()
+                elif clicked_widget == self.sprite_label or clicked_widget == self:
+                    # User clicked the cat or the background -> toggle boxes
+                    if self.stacked_pages.isVisible():
+                        self.bubble_visible = False
+                        self.stacked_pages.hide()
+                    else:
+                        self.bubble_visible = True
+                        self.stacked_pages.show()
 
     def flip_to_next_page(self):
-        """Grab pixmaps of current and next pages, then run the 3D curl animation."""
-        if self._is_flipping:
-            return   # ignore clicks while animation is running
-        self._is_flipping = True
-        next_page = (self.current_page + 1) % 3
-
-        # Ensure overlay exists
-        if not hasattr(self, 'flip_overlay'):
-            self.flip_overlay = WebFlipWidget(self.stacked_pages)
-
-        # Grab the current (from) page
-        from_pix = self.stacked_pages.grab()
-
-        # Briefly switch to next page to grab its appearance silently
-        self.stacked_pages.setCurrentIndex(next_page)
-        to_pix = self.stacked_pages.grab()
+        """Toggle to the next box in the stack."""
+        self.current_page = (self.current_page + 1) % 4
         self.stacked_pages.setCurrentIndex(self.current_page)
-
-        def on_done():
-            self.current_page = next_page
-            self.stacked_pages.setCurrentIndex(next_page)
-            self._is_flipping = False   # allow next flip
-
-        self.flip_overlay.play_flip(from_pix, to_pix, on_done)
 
     def handle_feeding(self):
         target = self.brain.get_top_offender()
         if target:
-            reply = QMessageBox.question(
-                self, "Confirm Devour",
-                f"Do you want to devour '{target['name']}'?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+            popup = PinkPopup("Confirm Action", f"Do you want to devour\n'{target['name']}'?", self.pixel_font, True, self)
             
-            if reply == QMessageBox.StandardButton.Yes:
+            if popup.exec() == QDialog.DialogCode.Accepted:
                 success, message = self.brain.devour_process(target['pid'])
                 if success:
                     self.is_chonky = False 
@@ -652,15 +747,10 @@ class TamagotchiWidget(QWidget):
             
             # 2. Show confirmation
             filename = os.path.basename(path)
-            reply = QMessageBox.question(
-                self, "Confirm Feeding",
-                f"Do you want to feed '{filename}' to the pet?\n(This will move the file to the Recycle Bin!)",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
-            )
+            popup = PinkPopup("Confirm Feeding", f"Do you want to feed '{filename}' to the pet?\n(This will move the file to the Recycle Bin!)", self.pixel_font, True, self)
             
             # 3. Handle reply
-            if reply == QMessageBox.StandardButton.Yes:
+            if popup.exec() == QDialog.DialogCode.Accepted:
                 success, message = self.brain.eat_file(path)
                 if success:
                     self.brain.pet_thoughts = message
