@@ -244,14 +244,14 @@ class TamagotchiWidget(QWidget):
         self.speech_container.setObjectName("SpeechBox")
         
         self.speech_title_label = QLabel(self.speech_container)
-        self.speech_title_label.setGeometry(50, 3, 110, 22)
+        self.speech_title_label.setGeometry(73, 3, 110, 22)
         self.speech_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.speech_title_label.setFont(QFont(self.pixel_font, 12))
+        self.speech_title_label.setFont(QFont(self.pixel_font, 13))
         self.speech_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
         
         self.layers_layout = QVBoxLayout()
         self.layers_layout.setContentsMargins(23, 40, 32, 4)
-        self.layers_layout.setSpacing(0)
+        self.layers_layout.setSpacing(5)
         self.speech_container.setLayout(self.layers_layout)
         
         frame_path = os.path.join(self.assets_dir, "frame.png")
@@ -331,10 +331,10 @@ class TamagotchiWidget(QWidget):
         ramen_path = os.path.join(self.assets_dir, "ramen1.png")
         if os.path.exists(ramen_path):
             self.feed_btn.setIcon(QIcon(ramen_path))
-            self.feed_btn.setIconSize(QSize(28, 28))
+            self.feed_btn.setIconSize(QSize(24, 24))
         
         self.feed_btn.setStyleSheet(btn_css)
-        self.feed_btn.setFixedSize(134, 32)
+        self.feed_btn.setFixedSize(134, 28)
         self.feed_btn.clicked.connect(self.handle_feeding)
         self.feed_btn.hide()
         self.layers_layout.addWidget(self.feed_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
@@ -345,29 +345,29 @@ class TamagotchiWidget(QWidget):
         monster_path = os.path.join(self.assets_dir, "monsterdrink.png")
         if os.path.exists(monster_path):
             self.overclock_btn.setIcon(QIcon(monster_path))
-            self.overclock_btn.setIconSize(QSize(28, 28))
+            self.overclock_btn.setIconSize(QSize(24, 24))
             
         self.overclock_btn.setStyleSheet(btn_css)
-        self.overclock_btn.setFixedSize(134, 32)
+        self.overclock_btn.setFixedSize(134, 28)
         self.overclock_btn.clicked.connect(self.handle_overclock)
         self.layers_layout.addWidget(self.overclock_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         self.reboot_btn = QPushButton("REBOOT SYSTEM 💾")
         self.reboot_btn.setStyleSheet(btn_css)
-        self.reboot_btn.setFixedSize(134, 32)
+        self.reboot_btn.setFixedSize(134, 28)
         self.reboot_btn.clicked.connect(self.handle_reboot)
         self.reboot_btn.hide()
+        self.layers_layout.addSpacing(15)
         self.layers_layout.addWidget(self.reboot_btn, alignment=Qt.AlignmentFlag.AlignHCenter)
         self.layers_layout.addStretch()
-        # Add to horizontal layout later
-        # Move StatsBox ABOVE the Sprite        # --- STATS BUBBLE (Hover Menu) ---
+        # --- STATS BUBBLE (Hover Menu) ---
         self.stats_container = QWidget()
         self.stats_container.setObjectName("StatsBox")
         
-        self.stats_title_label = QLabel("     SYSTEM MONITOR] ", self.stats_container)
-        self.stats_title_label.setGeometry(55, 3, 110, 22)
+        self.stats_title_label = QLabel("SYSTEM MONITOR", self.stats_container)
+        self.stats_title_label.setGeometry(73, 3, 110, 22)
         self.stats_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.stats_title_label.setFont(QFont(self.pixel_font, 11))
+        self.stats_title_label.setFont(QFont(self.pixel_font, 13))
         self.stats_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
         
         self.stats_inner_layout = QVBoxLayout()
@@ -452,31 +452,47 @@ class TamagotchiWidget(QWidget):
             """
             self.music_container.setStyleSheet(self.music_style)
             
-        self.music_title_label = QLabel("    [MUSIC REMOTE]", self.music_container)
-        self.music_title_label.setGeometry(55, 1, 110, 22)
+        self.music_title_label = QLabel("MUSIC REMOTE", self.music_container)
+        self.music_title_label.setGeometry(70, 2, 110, 22)
         self.music_title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.music_title_label.setFont(QFont(self.pixel_font, 11))
+        self.music_title_label.setFont(QFont(self.pixel_font, 13))
         self.music_title_label.setStyleSheet("color: #4B0082; font-weight: bold; background: transparent; border: none;")
         
         self.music_controls_layout = QVBoxLayout()
         self.music_controls_layout.setSpacing(10)
         self.music_controls_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        self.btn_play_music = QPushButton("🎧 PLAY/PAUSE")
-        self.btn_play_music.setStyleSheet(btn_css)
+        self.btn_play_music = QPushButton("PLAY/PAUSE" + "\u00A0" * 4)
+        self.btn_play_music.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        
+        music_p_path = os.path.join(self.assets_dir, "musicplayer.png")
+        if os.path.exists(music_p_path):
+            from PyQt6.QtGui import QIcon
+            from PyQt6.QtCore import QSize
+            self.btn_play_music.setIcon(QIcon(music_p_path))
+            self.btn_play_music.setIconSize(QSize(24, 24))
+            
+        music_btn_css = btn_css.replace("font-size: 12px;", "font-size: 14px;")
+        self.btn_play_music.setStyleSheet(music_btn_css)
         self.btn_play_music.setFixedSize(130, 32)
         self.btn_play_music.clicked.connect(lambda: pyautogui.press('playpause'))
         
-        self.btn_stop_music = QPushButton("✨ SKIP TRACK")
-        self.btn_stop_music.setStyleSheet(btn_css)
+        self.btn_stop_music = QPushButton("SKIP TRACK" + "\u00A0" * 4)
+        self.btn_stop_music.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        
+        cd_path = os.path.join(self.assets_dir, "cd.png")
+        if os.path.exists(cd_path):
+            from PyQt6.QtGui import QIcon
+            from PyQt6.QtCore import QSize
+            self.btn_stop_music.setIcon(QIcon(cd_path))
+            self.btn_stop_music.setIconSize(QSize(24, 24))
+            
+        self.btn_stop_music.setStyleSheet(music_btn_css)
         self.btn_stop_music.setFixedSize(130, 32)
         self.btn_stop_music.clicked.connect(lambda: pyautogui.press('nexttrack'))
         
         self.music_controls_layout.addWidget(self.btn_play_music)
         self.music_controls_layout.addWidget(self.btn_stop_music)
-        
-        # Override margins to physically push the content box into the visual white center of the bubble
-        # self.music_layout.setContentsMargins(19, 30, 27, 14) # Removed, now set above
         
         self.music_layout.addLayout(self.music_controls_layout)
         self.music_container.setLayout(self.music_layout)
@@ -549,9 +565,40 @@ class TamagotchiWidget(QWidget):
         self.stacked_pages.hide()
         
         from PyQt6.QtWidgets import QHBoxLayout
+        
+        self.btn_prev_page = QPushButton("◄")
+        self.btn_next_page = QPushButton("►")
+        
+        nav_btn_style = f"""
+            QPushButton {{
+                background-color: #FAF5FF;
+                border: 2px solid #B19CD9;
+                border-radius: 6px;
+                color: #4B0082;
+                font-family: '{self.pixel_font}';
+                font-size: 11px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #E6E6FA;
+            }}
+        """
+        self.btn_prev_page.setStyleSheet(nav_btn_style)
+        self.btn_next_page.setStyleSheet(nav_btn_style)
+        self.btn_prev_page.setFixedSize(18, 30)
+        self.btn_next_page.setFixedSize(18, 30)
+        
+        self.btn_prev_page.clicked.connect(self.flip_to_prev_page)
+        self.btn_next_page.clicked.connect(self.flip_to_next_page)
+        
+        self.btn_prev_page.hide()
+        self.btn_next_page.hide()
+
         self.menus_layout = QHBoxLayout()
         self.menus_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.menus_layout.addWidget(self.btn_prev_page)
         self.menus_layout.addWidget(self.stacked_pages)
+        self.menus_layout.addWidget(self.btn_next_page)
         
         self.layout.addLayout(self.menus_layout)
 
@@ -585,8 +632,7 @@ class TamagotchiWidget(QWidget):
         
         # UI overlays
         if "OVERCLOCK" in status:
-            monster_uri = os.path.join(self.assets_dir, "monsterdrink.png").replace('\\', '/')
-            status = f"OVERCLOCK <img src='{monster_uri}' width='14' height='14' align='middle'>"
+            status = "OVERCLOCK ⚡"
             
         if self.is_chonky and img not in ["dead"]:
             img = "chonky"
@@ -660,8 +706,6 @@ class TamagotchiWidget(QWidget):
         
         self.is_chonky = (img == "chonky")
 
-    # Removed enterEvent and leaveEvent because QStackedWidget handles visibility now
-
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.is_dragging = True
@@ -689,21 +733,49 @@ class TamagotchiWidget(QWidget):
                     temp = temp.parentWidget()
                 
                 if is_on_menu:
-                    # User clicked the boxes -> flip to next page
-                    self.flip_to_next_page()
+                    # User clicked the boxes -> do nothing so they can interact with the contents
+                    pass
                 elif clicked_widget == self.sprite_label or clicked_widget == self:
                     # User clicked the cat or the background -> toggle boxes
                     if self.stacked_pages.isVisible():
                         self.bubble_visible = False
                         self.stacked_pages.hide()
+                        self.update_arrow_visibility()
                     else:
                         self.bubble_visible = True
                         self.stacked_pages.show()
+                        self.update_arrow_visibility()
+
+    def flip_to_prev_page(self):
+        """Toggle to the previous box in the stack."""
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.stacked_pages.setCurrentIndex(self.current_page)
+            self.update_arrow_visibility()
 
     def flip_to_next_page(self):
         """Toggle to the next box in the stack."""
-        self.current_page = (self.current_page + 1) % 4
-        self.stacked_pages.setCurrentIndex(self.current_page)
+        if self.current_page < self.stacked_pages.count() - 1:
+            self.current_page += 1
+            self.stacked_pages.setCurrentIndex(self.current_page)
+            self.update_arrow_visibility()
+
+    def update_arrow_visibility(self):
+        """Helper to show/hide navigation arrows based on the current page."""
+        if not self.bubble_visible:
+            self.btn_prev_page.hide()
+            self.btn_next_page.hide()
+            return
+            
+        if self.current_page <= 0:
+            self.btn_prev_page.hide()
+        else:
+            self.btn_prev_page.show()
+            
+        if self.current_page >= self.stacked_pages.count() - 1:
+            self.btn_next_page.hide()
+        else:
+            self.btn_next_page.show()
 
     def handle_feeding(self):
         target = self.brain.get_top_offender()

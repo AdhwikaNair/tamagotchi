@@ -1,5 +1,0 @@
-Format: GIF, Mode: P
-Info: {'version': b'GIF89a', 'background': 0, 'loop': 0, 'transparency': 255, 'comment': b'GIF converted with https://ezgif.com/video-to-gif', 'duration': 100, 'extension': (b'NETSCAPE2.0', 848)}
-Top-left pixel (original mode): 8
-Top-left pixel (RGBA): (167, 167, 167, 255)
-Palette color for top-left: (167, 167, 167)

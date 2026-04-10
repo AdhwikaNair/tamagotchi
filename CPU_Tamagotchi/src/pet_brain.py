@@ -17,6 +17,7 @@ class PetBrain:
         self.pet_thoughts = ""   
         self.active_url = ""      # Tracksclickable link
         self.thought_timer = 0
+        self.overclock_cooldown = 0
 
     def read_hardware(self):
         cpu_usage = psutil.cpu_percent(interval=0.1) 
@@ -95,6 +96,9 @@ class PetBrain:
             
         img = "chillin"
         # Core Game Logic with Time Awareness Overrides
+        if self.overclock_cooldown > 0 and not self.overclocking:
+            self.overclock_cooldown -= 1
+            
         if self.overclocking:
             self.hp -= 4      
             self.xp += 5      
@@ -103,6 +107,10 @@ class PetBrain:
         elif not plugged and batt < 20:
             self.status = "LOW BATTERY 💤"
             img = "dead"
+        elif self.overclock_cooldown > 0:
+            # Force chillin for a few seconds right after drinking energy drink
+            self.status = "CHILLIN 😎"
+            img = "chillin"
         elif cpu > 85:
             # NEW: If you stress the PC late at night, the pet gets CRANKY
             if is_late_night:
@@ -121,11 +129,9 @@ class PetBrain:
             # NEW: The default state late at night isn't Chillin, it's Sleepy
             self.status = "SLEEPY 😴" 
             img = "sleepy"
-            # Removed self.xp += 1 to stop passive XP gain
         else:
             self.status = "CHILLIN 😎"
             img = "chillin"
-            # Removed self.xp += 1 to stop passive XP gain
             
         if self.hp <= 0:
             self.hp = 0
@@ -194,6 +200,8 @@ class PetBrain:
     def toggle_overclock(self):
         if not self.is_dead:
             self.overclocking = not self.overclocking
+            if not self.overclocking:
+                self.overclock_cooldown = 5 # Guarantee 10s of Chillin status
 
     def reboot_system(self):
         self.hp = 100
