@@ -635,7 +635,7 @@ class TamagotchiWidget(QWidget):
             status = "OVERCLOCK ⚡"
             
         if self.is_chonky and img not in ["dead"]:
-            img = "chonky"
+            img = "eating2gif"
             status = "CHONKY 🍔"
 
         # Update Pixmap
@@ -704,7 +704,7 @@ class TamagotchiWidget(QWidget):
             else:
                 self.sprite_label.setText(f"[{img}]")
         
-        self.is_chonky = (img == "chonky")
+        self.is_chonky = (img == "eating2gif")
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -835,6 +835,8 @@ class TamagotchiWidget(QWidget):
                     self.revert_chonky_state() # Revert if failed
             else:
                 self.revert_chonky_state() # Revert immediately if cancelled
+
+
 
     def revert_chonky_state(self):
         self.is_chonky = False
